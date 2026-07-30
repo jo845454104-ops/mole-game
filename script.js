@@ -1,9 +1,11 @@
-const GAME_SECONDS = 40;
-const EVADE_DIST = 60;
-const EVADE_COOLDOWN = 320;
+const GAME_SECONDS = 120;
+const COLS = 8;
+const ROWS = 10;
+const TARGET_SUM = 10;
 
-const gameArea = document.getElementById("game-area");
-const mole = document.getElementById("mole");
+const gridEl = document.getElementById("apple-grid");
+const selectionBox = document.getElementById("selection-box");
+const sumBadge = document.getElementById("sum-badge");
 const scoreEl = document.getElementById("score");
 const timeEl = document.getElementById("time");
 const startOverlay = document.getElementById("start-overlay");
@@ -12,104 +14,174 @@ const startBtn = document.getElementById("start-btn");
 const retryBtn = document.getElementById("retry-btn");
 const restartBtn = document.getElementById("restart-btn");
 const finalScoreEl = document.getElementById("final-score");
+const endTitleEl = document.getElementById("end-title");
 
 let score = 0;
 let timeLeft = GAME_SECONDS;
 let playing = false;
 let timerId = null;
-let lastEvadeAt = 0;
+let apples = [];
+let isSelecting = false;
+let startX = 0;
+let startY = 0;
+let clearedCount = 0;
 
-const HIT_MESSAGES = ["잡았다!", "도망 못가!", "+1", "성공!"];
-
-function randomBetween(min, max) {
-  return Math.random() * (max - min) + min;
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
-function moleSize() {
-  return { w: mole.offsetWidth, h: mole.offsetHeight };
+function generateBalancedValues(total) {
+  const values = [];
+  const perNumber = Math.floor(total / 9);
+  for (let n = 1; n <= 9; n++) {
+    for (let i = 0; i < perNumber; i++) values.push(n);
+  }
+  while (values.length < total) {
+    values.push(Math.floor(Math.random() * 9) + 1);
+  }
+  return shuffle(values);
 }
 
-function placeMoleRandom(avoidX, avoidY) {
-  const rect = gameArea.getBoundingClientRect();
-  const { w, h } = moleSize();
-  const padX = w / 2 + 10;
-  const padY = h / 2 + 10;
-
-  let x, y, tries = 0;
-  do {
-    x = randomBetween(padX, rect.width - padX);
-    y = randomBetween(padY, rect.height - padY);
-    tries++;
-  } while (
-    avoidX != null &&
-    Math.hypot(x - avoidX, y - avoidY) < EVADE_DIST &&
-    tries < 12
-  );
-
-  mole.style.left = `${x}px`;
-  mole.style.top = `${y}px`;
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function moleCenter() {
-  const rect = gameArea.getBoundingClientRect();
-  const moleRect = mole.getBoundingClientRect();
+function buildGrid() {
+  gridEl.innerHTML = "";
+  apples = [];
+  clearedCount = 0;
+
+  const values = generateBalancedValues(COLS * ROWS);
+
+  values.forEach((value, idx) => {
+    const el = document.createElement("div");
+    el.className = "apple";
+    el.textContent = value;
+    gridEl.appendChild(el);
+    apples.push({ value, el, cleared: false, rect: null });
+  });
+}
+
+function measureRects() {
+  const gridRect = gridEl.getBoundingClientRect();
+  apples.forEach((apple) => {
+    const r = apple.el.getBoundingClientRect();
+    apple.rect = {
+      left: r.left - gridRect.left,
+      top: r.top - gridRect.top,
+      right: r.right - gridRect.left,
+      bottom: r.bottom - gridRect.top,
+    };
+  });
+}
+
+function rectsIntersect(a, b) {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
+function getSelectionRect(curX, curY) {
   return {
-    x: moleRect.left + moleRect.width / 2 - rect.left,
-    y: moleRect.top + moleRect.height / 2 - rect.top,
+    left: Math.min(startX, curX),
+    top: Math.min(startY, curY),
+    right: Math.max(startX, curX),
+    bottom: Math.max(startY, curY),
   };
 }
 
-function handlePointerMove(e) {
-  if (!playing) return;
+function updateSelectionVisual(sel) {
+  selectionBox.hidden = false;
+  selectionBox.style.left = `${sel.left}px`;
+  selectionBox.style.top = `${sel.top}px`;
+  selectionBox.style.width = `${sel.right - sel.left}px`;
+  selectionBox.style.height = `${sel.bottom - sel.top}px`;
 
-  const now = performance.now();
-  if (now - lastEvadeAt < EVADE_COOLDOWN) return;
+  let sum = 0;
+  apples.forEach((apple) => {
+    if (apple.cleared) return;
+    const hit = rectsIntersect(apple.rect, sel);
+    apple.el.classList.toggle("is-selecting", hit);
+    if (hit) sum += apple.value;
+  });
 
-  const rect = gameArea.getBoundingClientRect();
-  const px = (e.clientX ?? e.touches?.[0]?.clientX) - rect.left;
-  const py = (e.clientY ?? e.touches?.[0]?.clientY) - rect.top;
+  sumBadge.hidden = false;
+  sumBadge.textContent = sum;
+  sumBadge.style.left = `${sel.right}px`;
+  sumBadge.style.top = `${sel.top}px`;
+  sumBadge.classList.toggle("is-good", sum === TARGET_SUM);
+  sumBadge.classList.toggle("is-over", sum > TARGET_SUM);
+}
 
-  const c = moleCenter();
-  const dist = Math.hypot(px - c.x, py - c.y);
+function clearSelectionVisual() {
+  selectionBox.hidden = true;
+  sumBadge.hidden = true;
+  apples.forEach((apple) => apple.el.classList.remove("is-selecting"));
+}
 
-  if (dist < EVADE_DIST) {
-    lastEvadeAt = now;
-    placeMoleRandom(px, py);
+function finalizeSelection() {
+  const selected = apples.filter((a) => !a.cleared && a.el.classList.contains("is-selecting"));
+  const sum = selected.reduce((acc, a) => acc + a.value, 0);
+
+  if (sum === TARGET_SUM && selected.length > 0) {
+    selected.forEach((a) => {
+      a.cleared = true;
+      a.el.classList.remove("is-selecting");
+      a.el.classList.add("is-cleared");
+    });
+    clearedCount += selected.length;
+    score += selected.length;
+    scoreEl.textContent = score;
+
+    if (clearedCount >= apples.length) {
+      endGame(true);
+    }
   }
+
+  clearSelectionVisual();
 }
 
-function spawnHitPop(x, y) {
-  const pop = document.createElement("div");
-  pop.className = "hit-pop";
-  pop.textContent = HIT_MESSAGES[Math.floor(Math.random() * HIT_MESSAGES.length)];
-  pop.style.left = `${x}px`;
-  pop.style.top = `${y}px`;
-  gameArea.appendChild(pop);
-  window.setTimeout(() => pop.remove(), 600);
+function relativePoint(e) {
+  const rect = gridEl.getBoundingClientRect();
+  const point = e.touches ? e.touches[0] : e;
+  return {
+    x: Math.min(Math.max(point.clientX - rect.left, 0), rect.width),
+    y: Math.min(Math.max(point.clientY - rect.top, 0), rect.height),
+  };
 }
 
-function handleHit(e) {
+function handlePointerDown(e) {
   if (!playing) return;
-  e.stopPropagation();
+  const p = relativePoint(e);
+  isSelecting = true;
+  startX = p.x;
+  startY = p.y;
+  measureRects();
+  gridEl.setPointerCapture?.(e.pointerId);
+  updateSelectionVisual(getSelectionRect(startX, startY));
+}
 
-  score += 1;
-  scoreEl.textContent = score;
+function handlePointerMove(e) {
+  if (!isSelecting) return;
+  const p = relativePoint(e);
+  updateSelectionVisual(getSelectionRect(p.x, p.y));
+}
 
-  const c = moleCenter();
-  spawnHitPop(c.x, c.y);
-
-  mole.classList.remove("is-hit");
-  void mole.offsetWidth;
-  mole.classList.add("is-hit");
-
-  placeMoleRandom(c.x, c.y);
+function handlePointerUp() {
+  if (!isSelecting) return;
+  isSelecting = false;
+  finalizeSelection();
 }
 
 function tick() {
   timeLeft -= 1;
-  timeEl.textContent = timeLeft;
+  timeEl.textContent = formatTime(timeLeft);
   if (timeLeft <= 0) {
-    endGame();
+    endGame(false);
   }
 }
 
@@ -117,28 +189,36 @@ function startGame() {
   score = 0;
   timeLeft = GAME_SECONDS;
   scoreEl.textContent = score;
-  timeEl.textContent = timeLeft;
+  timeEl.textContent = formatTime(timeLeft);
   playing = true;
 
   startOverlay.hidden = true;
   endOverlay.hidden = true;
-  mole.style.visibility = "visible";
 
-  placeMoleRandom();
+  buildGrid();
+  clearSelectionVisual();
+
+  window.clearInterval(timerId);
   timerId = window.setInterval(tick, 1000);
 }
 
-function endGame() {
+function endGame(cleared) {
   playing = false;
+  isSelecting = false;
   window.clearInterval(timerId);
-  mole.style.visibility = "hidden";
+  clearSelectionVisual();
+
+  endTitleEl.textContent = cleared ? "올 클리어! 🎉" : "시간 종료!";
   finalScoreEl.textContent = score;
   endOverlay.hidden = false;
 }
 
-mole.style.visibility = "hidden";
-mole.addEventListener("click", handleHit);
-gameArea.addEventListener("pointermove", handlePointerMove);
+gridEl.addEventListener("pointerdown", handlePointerDown);
+window.addEventListener("pointermove", handlePointerMove);
+window.addEventListener("pointerup", handlePointerUp);
+
 startBtn.addEventListener("click", startGame);
 retryBtn.addEventListener("click", startGame);
 restartBtn.addEventListener("click", startGame);
+
+buildGrid();

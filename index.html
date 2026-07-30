@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>김가현 잡기 게임</title>
+  <title>김가현 사과게임</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="wrap">
     <header class="topbar">
-      <h1 class="title">🕹️ 김가현 잡기</h1>
-      <p class="subtitle">도망가는 김가현을 마우스로 쫓아가서 잡아보세요!</p>
+      <h1 class="title">🍎 김가현 사과게임</h1>
+      <p class="subtitle">드래그해서 합이 10이 되는 사과를 터뜨리세요!</p>
     </header>
 
     <div class="hud">
@@ -20,46 +20,28 @@
       </div>
       <div class="hud__box">
         <span class="hud__label">남은 시간</span>
-        <span class="hud__value" id="time">40</span>
+        <span class="hud__value" id="time">2:00</span>
       </div>
       <button type="button" class="restart-btn" id="restart-btn">다시하기</button>
     </div>
 
-    <div class="game-area" id="game-area">
-      <div class="mound mound--1"></div>
-      <div class="mound mound--2"></div>
-      <div class="mound mound--3"></div>
-      <div class="mound mound--4"></div>
-
-      <div class="mole" id="mole">
-        <svg viewBox="0 0 100 90" width="100%" height="100%">
-          <ellipse cx="50" cy="55" rx="38" ry="32" fill="#8d6e52" />
-          <ellipse cx="50" cy="60" rx="26" ry="20" fill="#cf9f7a" />
-          <ellipse cx="26" cy="24" rx="10" ry="12" fill="#8d6e52" />
-          <ellipse cx="74" cy="24" rx="10" ry="12" fill="#8d6e52" />
-          <ellipse cx="26" cy="26" rx="5" ry="6" fill="#e8bfa0" />
-          <ellipse cx="74" cy="26" rx="5" ry="6" fill="#e8bfa0" />
-          <ellipse cx="36" cy="46" rx="4.5" ry="6" fill="#241a12" />
-          <ellipse cx="64" cy="46" rx="4.5" ry="6" fill="#241a12" />
-          <ellipse cx="37.3" cy="44" rx="1.4" ry="1.8" fill="#fff" />
-          <ellipse cx="65.3" cy="44" rx="1.4" ry="1.8" fill="#fff" />
-          <ellipse cx="50" cy="60" rx="9" ry="7" fill="#ff8fa3" />
-          <path d="M 44 66 Q 50 72 56 66" stroke="#4a2f1c" stroke-width="2" fill="none" stroke-linecap="round" />
-        </svg>
-      </div>
+    <div class="board-wrap">
+      <div class="apple-grid" id="apple-grid"></div>
+      <div class="selection-box" id="selection-box" hidden></div>
+      <div class="sum-badge" id="sum-badge" hidden></div>
 
       <div class="overlay" id="start-overlay">
         <div class="overlay__card">
-          <p class="overlay__title">김가현 잡기</p>
-          <p class="overlay__desc">40초 동안 최대한 많이 잡아보세요!</p>
+          <p class="overlay__title">김가현 사과게임</p>
+          <p class="overlay__desc">2분 동안 합이 10이 되는 사과들을<br />드래그로 묶어서 최대한 많이 터뜨리세요!</p>
           <button type="button" class="play-btn" id="start-btn">게임 시작</button>
         </div>
       </div>
 
       <div class="overlay" id="end-overlay" hidden>
         <div class="overlay__card">
-          <p class="overlay__title">시간 종료!</p>
-          <p class="overlay__result"><span id="final-score">0</span>번 잡았어요</p>
+          <p class="overlay__title" id="end-title">시간 종료!</p>
+          <p class="overlay__result"><span id="final-score">0</span>개 터뜨렸어요</p>
           <button type="button" class="play-btn" id="retry-btn">다시하기</button>
         </div>
       </div>
