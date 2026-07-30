@@ -1,6 +1,6 @@
-const GAME_SECONDS = 30;
-const EVADE_DIST = 95;
-const EVADE_COOLDOWN = 180;
+const GAME_SECONDS = 40;
+const EVADE_DIST = 60;
+const EVADE_COOLDOWN = 320;
 
 const gameArea = document.getElementById("game-area");
 const mole = document.getElementById("mole");

@@ -125,8 +125,8 @@ body {
 
 .mole {
   position: absolute;
-  width: 76px;
-  height: 68px;
+  width: 96px;
+  height: 86px;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
